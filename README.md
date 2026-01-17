@@ -33,3 +33,12 @@ temporary action limits.
 To stop repeated delete cycles, run:
 ```js
 window.__STOP_IG_BULK_DELETE__ = true;
+```
+
+## Notes
+
+This script is provided as-is.
+No guarantees are made regarding long-term compatibility or continued functionality.
+
+
+

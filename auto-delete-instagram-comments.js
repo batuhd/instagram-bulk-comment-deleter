@@ -2,15 +2,18 @@
  * Instagram Bulk Comments Deletion Script
  *
  * Purpose:
- * Automates the selection and deletion of comments using Instagram’s
- * current Bloks-based UI and the confirmation React modal.
+ * Automates the selection and deletion of comments using Instagram's
+ * current React-based UI and confirmation modal.
+ * Uses text-based selectors for resilience against DOM changes.
+ * Supports both English and Turkish (Seç/Sil) locales.
  *
  * Execution:
  * 1. Open Instagram in a desktop browser.
  * 2. Navigate to the comments activity page:
  *    https://www.instagram.com/your_activity/interactions/comments
- * 3. Open your browser developer console (preferable Chrome).
- * 4. Paste this script and execute it.
+ * 3. Use Instagram's "Sort & filter" to select the date range you want to delete.
+ * 4. Open your browser developer console (preferable Chrome).
+ * 5. Paste this script and execute it.
  *
  * Notes:
  * - Deletions are irreversible.
@@ -55,8 +58,14 @@
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   /**
+   * Localized button labels (English + Turkish).
+   */
+  const SELECT_LABELS = ["Select", "Seç"];
+  const DELETE_LABELS = ["Delete", "Sil"];
+
+  /**
    * Dispatches pointer events to simulate a real user click.
-   * Required for Bloks UI elements which ignore .click().
+   * Required for React UI elements which ignore .click().
    */
   function realClick(element) {
     element.scrollIntoView({ block: "center" });
@@ -74,14 +83,21 @@
   }
 
   /**
-   * Locates the "Select" control that enables multi-selection mode.
+   * Locates the "Select" / "Seç" control that enables multi-selection mode.
+   * Uses text-based search across all spans since data-bloks-name is removed.
    */
   function findSelectButton() {
-    return [
-      ...document.querySelectorAll(
-        'div[data-bloks-name="bk.components.Flexbox"]',
-      ),
-    ].find((el) => el.innerText?.trim() === "Select");
+    for (const span of document.querySelectorAll("span")) {
+      if (SELECT_LABELS.includes(span.textContent?.trim())) {
+        return (
+          span.closest('[role="button"]') ||
+          span.closest("div[tabindex]") ||
+          span.parentElement ||
+          span
+        );
+      }
+    }
+    return null;
   }
 
   /**
@@ -98,12 +114,29 @@
   }
 
   /**
-   * Retrieves selectable comment icons (unchecked radio buttons).
+   * Retrieves selectable comment icons (unchecked checkboxes/radio buttons).
+   * Uses multiple fallback strategies since Instagram changes attributes frequently.
    */
   function getSelectableIcons() {
-    return document.querySelectorAll(
-      'div[data-bloks-name="ig.components.Icon"][style*="circle__outline"]',
-    );
+    // Strategy 1: data-testid checkboxes
+    let icons = document.querySelectorAll('[data-testid="bulk_action_checkbox"]');
+    if (icons.length) return icons;
+
+    // Strategy 2: role=checkbox with unchecked state
+    icons = document.querySelectorAll('[role="checkbox"][aria-checked="false"]');
+    if (icons.length) return icons;
+
+    // Strategy 3: unfilled circle icons (legacy style attribute)
+    icons = document.querySelectorAll('div[style*="circle__outline"]');
+    if (icons.length) return icons;
+
+    // Strategy 4: generic unchecked input checkboxes
+    icons = document.querySelectorAll('input[type="checkbox"]:not(:checked)');
+    if (icons.length) return icons;
+
+    // Strategy 5: any unchecked radio-style icons in the comment list
+    icons = document.querySelectorAll('[role="radio"][aria-checked="false"]');
+    return icons;
   }
 
   /**
@@ -135,30 +168,31 @@
   }
 
   /**
-   * Locates the Bloks-level Delete control.
+   * Locates the Delete / Sil control in the main UI.
    * The visible text is not clickable; the parent container is.
    */
   function findBloksDeleteButton() {
-    const deleteText = [
-      ...document.querySelectorAll(
-        'span[data-bloks-name="bk.components.TextSpan"]',
-      ),
-    ].find((span) => span.innerText?.trim() === "Delete");
-
-    if (!deleteText) return null;
-
-    return deleteText.closest('div[style*="pointer-events: auto"]');
+    for (const span of document.querySelectorAll("span")) {
+      if (DELETE_LABELS.includes(span.textContent?.trim())) {
+        const btn =
+          span.closest('[role="button"]') ||
+          span.closest('div[style*="pointer-events"]') ||
+          span.parentElement;
+        if (btn) return btn;
+      }
+    }
+    return null;
   }
 
   /**
-   * Triggers the initial delete action in the Bloks UI.
+   * Triggers the initial delete action in the main UI.
    */
   async function clickBloksDelete() {
     await sleep(SELECT_DELAY);
 
     const deleteBtn = findBloksDeleteButton();
     if (!deleteBtn) {
-      throw new Error("Bloks Delete control not found");
+      throw new Error("Delete control not found (looked for: " + DELETE_LABELS.join("/") + ")");
     }
 
     realClick(deleteBtn);
@@ -168,8 +202,8 @@
    * Locates the confirmation button in the React modal dialog.
    */
   function findModalDeleteButton() {
-    return [...document.querySelectorAll("button")].find(
-      (btn) => btn.innerText?.trim() === "Delete",
+    return [...document.querySelectorAll("button")].find((btn) =>
+      DELETE_LABELS.includes(btn.innerText?.trim()),
     );
   }
 

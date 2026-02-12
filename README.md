@@ -1,5 +1,7 @@
 # Instagram Bulk Comment Deleter
 
+![Animation](https://github.com/user-attachments/assets/9b7804fd-f26c-41f5-ac81-b962297fbf21)
+
 Browser-based JavaScript utility for bulk deleting Instagram comments from the comments activity page.
 
 > ⚠️ **Use at your own risk. Deletions are irreversible.**
